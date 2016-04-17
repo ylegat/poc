@@ -26,10 +26,6 @@ public abstract class Aggregate<AGGREGATE extends Aggregate<AGGREGATE, EVENT>, E
         return events;
     }
 
-    public Events<EVENT> eventsFrom(int version) {
-        return events.eventsFrom(version);
-    }
-
     @Override
     public int hashCode() {
         return Objects.hash(id);
