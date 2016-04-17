@@ -2,6 +2,7 @@ package com.zenika.poc.bill;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
+import com.zenika.poc.bill.BillEvent.BillClosed;
 import com.zenika.poc.bill.BillEvent.BillOpened;
 import com.zenika.poc.bill.BillEvent.OrderPaid;
 import com.zenika.poc.bill.BillEvent.OrderTaken;
@@ -89,7 +90,7 @@ public class Bill extends Aggregate<Bill, BillEvent> {
                 throw new RuntimeException(format("Unexpected event type %s for event %s", event.type, event));
         }
 
-        events = events.add(event);
+        events.add(event);
     }
 
     public void order(Order itemsOrdered) {
@@ -108,7 +109,7 @@ public class Bill extends Aggregate<Bill, BillEvent> {
     public void close() {
         checkIsOpen();
         checkIsPaid();
-        BillEvent.BillClosed billClosed = new BillEvent.BillClosed(id);
+        BillClosed billClosed = new BillClosed(id);
         applyEvent(billClosed);
     }
 

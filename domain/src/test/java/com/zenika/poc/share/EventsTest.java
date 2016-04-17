@@ -18,7 +18,7 @@ public class EventsTest {
     }
 
     @Test
-    public void should_not_accept_event_with_different_aggregate_id() {
+    public void should_not_add_event_with_different_aggregate_id() {
         // Given
         Events<TestEvent> events = singletonEvents(new TestEvent("id"));
 

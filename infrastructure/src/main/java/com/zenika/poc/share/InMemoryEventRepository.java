@@ -1,16 +1,15 @@
 package com.zenika.poc.share;
 
-import com.google.gson.Gson;
-
 import java.util.HashMap;
 import java.util.Map;
+
+import static com.zenika.poc.share.Events.emptyEvents;
 
 public class InMemoryEventRepository<EVENT extends Event> implements EventRepository<EVENT> {
 
     private final Map<String, Events<EVENT>> events;
 
     private final Object lock;
-    private Gson gson;
 
     public InMemoryEventRepository() {
         events = new HashMap<>();
@@ -25,10 +24,15 @@ public class InMemoryEventRepository<EVENT extends Event> implements EventReposi
     }
 
     @Override
-    public void addEvents(String aggregateId, Events<EVENT> events) {
+    public void addEvents(Events<EVENT> events) {
         synchronized (lock) {
-            this.events.computeIfPresent(aggregateId, (id, e) -> e.add(events));
-            this.events.computeIfAbsent(aggregateId, (id) -> events);
+            Events<EVENT> currentEvents = this.events.get(events.aggregateId());
+            if (currentEvents == null) {
+                currentEvents = emptyEvents();
+                this.events.put(events.aggregateId(), currentEvents);
+            }
+
+            currentEvents.addAll(events);
         }
     }
 

@@ -80,7 +80,7 @@ public class Item extends Aggregate<Item, ItemEvent> {
                 throw new RuntimeException(format("Unexpected event type %s for event %s", event.type, event));
         }
 
-        events = events.add(event);
+        events.add(event);
     }
 
     public void changeName(String name) {

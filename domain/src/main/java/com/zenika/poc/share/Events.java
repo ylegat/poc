@@ -1,7 +1,5 @@
 package com.zenika.poc.share;
 
-import com.google.common.base.Preconditions;
-
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -9,9 +7,7 @@ import java.util.Objects;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Arrays.asList;
-import static java.util.Collections.emptyList;
-import static java.util.Collections.singletonList;
+import static com.google.common.collect.Lists.newArrayList;
 
 public class Events<EVENT extends Event> implements Iterable<EVENT> {
 
@@ -25,16 +21,14 @@ public class Events<EVENT extends Event> implements Iterable<EVENT> {
 
     private final List<EVENT> events;
 
-    private Events() {
-        this(emptyList());
-    }
+    private String aggregateId;
 
-    public Events(EVENT event) {
-        this(singletonList(event));
+    private Events() {
+        this(new ArrayList<>());
     }
 
     public Events(EVENT... events) {
-        this(asList(events));
+        this(newArrayList(events));
     }
 
     public Events(List<EVENT> events) {
@@ -43,22 +37,41 @@ public class Events<EVENT extends Event> implements Iterable<EVENT> {
                                          .distinct()
                                          .count();
 
-        checkArgument(distinctAggregateId == 0 || distinctAggregateId == 1, "Only event associated to the same aggregate can be grouped");
+        checkArgument(distinctAggregateId == 0 || distinctAggregateId == 1,
+                      "Only event associated to the same aggregate can be grouped");
+
         this.events = events;
+        this.aggregateId = events.stream()
+                                 .findFirst()
+                                 .map(event -> event.aggregateId)
+                                 .orElse(null);
     }
 
-    public Events<EVENT> add(EVENT event) {
-        return add(singletonEvents(event));
+    public void add(EVENT event) {
+        if (aggregateId == null) {
+            aggregateId = event.aggregateId;
+        } else {
+            checkArgument(Objects.equals(aggregateId, event.aggregateId),
+                          "Only event associated to the same aggregate can be grouped");
+        }
+
+        events.add(event);
     }
 
-    public Events<EVENT> add(Events<EVENT> events) {
-        List<EVENT> copy = new ArrayList<>(this.events);
-        copy.addAll(events.events);
-        return new Events<>(copy);
+    public void addAll(Events<EVENT> events) {
+        events.stream().forEach(this::add);
     }
 
     public Stream<EVENT> stream() {
         return events.stream();
+    }
+
+    public String aggregateId() {
+        return aggregateId;
+    }
+
+    public void setAggregateId(String aggregateId) {
+        this.aggregateId = aggregateId;
     }
 
     @Override
