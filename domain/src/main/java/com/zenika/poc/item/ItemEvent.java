@@ -11,9 +11,7 @@ public class ItemEvent extends Event {
     public enum StockEventType {
         ITEM_CREATED,
         ITEM_ADDED,
-        ITEM_RESERVED,
-        ITEM_RESERVATION_CONFIRMED,
-        ITEM_RESERVATION_CANCELED,
+        ITEM_REMOVED,
         ITEM_PRICE_CHANGED,
         ITEM_NAME_CHANGED
     }
@@ -63,11 +61,11 @@ public class ItemEvent extends Event {
 
     public static class ItemNameChanged extends ItemEvent {
 
-        public final String name;
+        public final String newName;
 
-        public ItemNameChanged(String itemId, String name) {
+        public ItemNameChanged(String itemId, String newName) {
             super(itemId, ITEM_NAME_CHANGED);
-            this.name = name;
+            this.newName = newName;
         }
 
         @Override
@@ -76,7 +74,7 @@ public class ItemEvent extends Event {
             if (!(o instanceof ItemNameChanged)) return false;
             if (!super.equals(o)) return false;
             ItemNameChanged that = (ItemNameChanged) o;
-            return Objects.equals(name, that.name);
+            return Objects.equals(newName, that.newName);
         }
     }
 
@@ -101,21 +99,11 @@ public class ItemEvent extends Event {
 
     public static class ItemReserved extends ItemEvent {
 
-        public final int stock;
+        public final int newStock;
 
-        public final int reservation;
-
-        public final String reservationId;
-
-        public ItemReserved(String itemId, String reservationId, int stock, int reservation) {
-            super(itemId, ITEM_RESERVED);
-            this.reservationId = reservationId;
-            this.stock = stock;
-            this.reservation = reservation;
-        }
-
-        public boolean isReservationId(String reservationId) {
-            return Objects.equals(this.reservationId, reservationId);
+        public ItemReserved(String itemId, int newStock) {
+            super(itemId, ITEM_REMOVED);
+            this.newStock = newStock;
         }
 
         @Override
@@ -124,59 +112,17 @@ public class ItemEvent extends Event {
             if (!(o instanceof ItemReserved)) return false;
             if (!super.equals(o)) return false;
             ItemReserved that = (ItemReserved) o;
-            return stock == that.stock &&
-                   Objects.equals(reservationId, that.reservationId);
-        }
-    }
-
-    public static class ItemReservationConfirmed extends ItemEvent {
-
-        public final String reservationId;
-
-        public ItemReservationConfirmed(String itemId, String reservationId) {
-            super(itemId, ITEM_RESERVATION_CONFIRMED);
-            this.reservationId = reservationId;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (!(o instanceof ItemReserved)) return false;
-            if (!super.equals(o)) return false;
-            ItemReserved that = (ItemReserved) o;
-            return Objects.equals(reservationId, that.reservationId);
-        }
-    }
-
-    public static class ItemReservationCanceled extends ItemEvent {
-
-        public final String reservationId;
-
-        public final int stock;
-
-        public ItemReservationCanceled(String itemId, String reservationId, int stock) {
-            super(itemId, ITEM_RESERVATION_CANCELED);
-            this.reservationId = reservationId;
-            this.stock = stock;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (!(o instanceof ItemReserved)) return false;
-            if (!super.equals(o)) return false;
-            ItemReserved that = (ItemReserved) o;
-            return Objects.equals(reservationId, that.reservationId);
+            return newStock == that.newStock;
         }
     }
 
     public static class ItemPriceChanged extends ItemEvent {
 
-        public final double price;
+        public final double newPrice;
 
-        public ItemPriceChanged(String itemId, double price) {
+        public ItemPriceChanged(String itemId, double newPrice) {
             super(itemId, ITEM_PRICE_CHANGED);
-            this.price = price;
+            this.newPrice = newPrice;
         }
 
         @Override
@@ -185,7 +131,7 @@ public class ItemEvent extends Event {
             if (!(o instanceof ItemPriceChanged)) return false;
             if (!super.equals(o)) return false;
             ItemPriceChanged that = (ItemPriceChanged) o;
-            return Double.compare(that.price, price) == 0;
+            return Double.compare(that.newPrice, newPrice) == 0;
         }
     }
 }

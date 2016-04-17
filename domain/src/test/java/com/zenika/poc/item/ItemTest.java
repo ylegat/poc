@@ -7,6 +7,7 @@ import com.zenika.poc.item.exception.UnknownPendingReservationException;
 import com.zenika.poc.share.Events;
 import org.junit.Test;
 
+import static com.zenika.poc.item.Item.createStock;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.StrictAssertions.assertThat;
@@ -14,32 +15,29 @@ import static org.assertj.core.api.StrictAssertions.catchThrowable;
 
 public class ItemTest {
 
-    public static final Item COFFEE = Item.createStock("coffee", 10, 1);
-
     @Test
     public void should_create_stock() {
-        // Given When 
-        Item item = Item.createStock("coffee", 10, 1);
+        // Given When
+        Item item = coffee();
 
         // Then
-        assertThat(item).isEqualTo(Item.createStock("coffee", 10, 1));
-        assertThat(item).isEqualTo(Item.loadStock(doubleEvents(item.events())));
+        assertThat(item).isEqualTo(createStock(item.id, "coffee", 10, 1));
     }
 
     @Test
     public void should_add_stock() {
         // Given When
-        Item item = COFFEE.add(10);
+        Item item = coffee();
+        item.add(10);
 
         // Then
-        assertThat(item).isEqualTo(Item.createStock("coffee", 20, 1));
-        assertThat(item).isEqualTo(Item.loadStock(doubleEvents(item.events())));
+        assertThat(item).isEqualTo(createStock(item.id, "coffee", 20, 1));
     }
 
     @Test
     public void should_fail_when_adding_negative_stock() {
         // Given When
-        Throwable throwable = catchThrowable(() -> COFFEE.add(-1));
+        Throwable throwable = catchThrowable(() -> coffee().add(-1));
 
         // Then
         assertThat(throwable).isInstanceOf(NegativeItemNumberException.class);
@@ -48,17 +46,17 @@ public class ItemTest {
     @Test
     public void should_change_price() {
         // Given When
-        Item item = COFFEE.changePrice(1.1);
+        Item item = coffee();
+        item.changePrice(1.1);
 
         // Then
-        assertThat(item).isEqualTo(Item.createStock("coffee", 10, 1.1));
-        assertThat(item).isEqualTo(Item.loadStock(doubleEvents(item.events())));
+        assertThat(item).isEqualTo(createStock(item.id, "coffee", 10, 1.1));
     }
 
     @Test
     public void should_when_setting_negative_price() {
         // Given When
-        Throwable throwable = catchThrowable(() -> COFFEE.changePrice(-1));
+        Throwable throwable = catchThrowable(() -> coffee().changePrice(-1));
 
         // Then
         assertThat(throwable).isInstanceOf(NegativePriceException.class);
@@ -67,150 +65,45 @@ public class ItemTest {
     @Test
     public void should_change_name() {
         // Given When
-        Item item = COFFEE.changeName("irish coffee");
+        Item item = coffee();
+        item.changeName("irish coffee");
 
         // Then
-        assertThat(item).isEqualTo(Item.createStock("irish coffee", 10, 1));
-        assertThat(item).isEqualTo(Item.loadStock(doubleEvents(item.events())));
+        assertThat(item).isEqualTo(createStock(item.id, "irish coffee", 10, 1));
     }
 
     @Test
     public void should_fail_when_changing_name_to_empty() {
         // Given When
-        Throwable throwable = catchThrowable(() -> COFFEE.changeName(""));
+        Throwable throwable = catchThrowable(() -> coffee().changeName(""));
 
         // Then
         assertThat(throwable).isInstanceOf(InvalidItemNameException.class);
     }
 
     @Test
-    public void should_reserve_items() {
+    public void should_remove_items() {
         // Given When
-        Item item = COFFEE.reserve(5).item;
+        Item item = coffee();
+        item.remove(5);
 
         // Then
-        assertThat(item).isEqualTo(Item.createStock("coffee", 5, 1));
-        assertThat(item).isEqualTo(Item.loadStock(doubleEvents(item.events())));
+        assertThat(item).isEqualTo(createStock(item.id, "coffee", 5, 1));
     }
 
     @Test
-    public void should_return_last_reservation_id_created() {
-        // Given When
-        Item.ReservationResult reservationResult = COFFEE.reserve(5);
-        String reservationId = reservationResult.reservationId;
+    public void should_events_be_idempotent() {
+        Item item = coffee();
+        item.add(10);
+        item.remove(5);
+        item.changeName("irish coffee");
+        item.changePrice(20);
 
-        // Then
-        assertThat(reservationId).isNotNull();
+        assertThat(Item.loadStock(doubleEvents(item.events()))).isEqualTo(item);
     }
 
-    @Test
-    public void should_confirm_item_reservation() {
-        // Given
-        Item.ReservationResult reservationResult = COFFEE.reserve(5);
-        Item item = reservationResult.item;
-        String reservationId = reservationResult.reservationId;
-
-        // When
-        item = item.confirmReservation(reservationId);
-
-        // Then
-        assertThat(item).isEqualTo(Item.createStock("coffee", 5, 1));
-        assertThat(item).isEqualTo(Item.loadStock(doubleEvents(item.events())));
-    }
-
-    @Test
-    public void should_fail_when_confirming_already_confirmed_reservation() {
-        // Given
-        Item.ReservationResult reservationResult = COFFEE.reserve(5);
-        Item item = reservationResult.item;
-        String reservationId = reservationResult.reservationId;
-
-        // When
-        Throwable throwable = catchThrowable(() -> item.confirmReservation(reservationId)
-                                                       .confirmReservation(reservationId));
-
-        // Then
-        assertThat(throwable).isInstanceOf(UnknownPendingReservationException.class);
-    }
-
-    @Test
-    public void should_fail_when_confirming_canceled_reservation() {
-        // Given
-        Item.ReservationResult reservationResult = COFFEE.reserve(5);
-        Item item = reservationResult.item;
-        String reservationId = reservationResult.reservationId;
-
-        // When
-        Throwable throwable = catchThrowable(() -> item.cancelReservation(reservationId)
-                                                       .confirmReservation(reservationId));
-
-        // Then
-        assertThat(throwable).isInstanceOf(UnknownPendingReservationException.class);
-    }
-
-    @Test
-    public void should_fail_when_confirming_unknown_reservation() {
-        // Given When
-        Throwable throwable = catchThrowable(() -> COFFEE.confirmReservation(""));
-
-        // Then
-        assertThat(throwable).isInstanceOf(UnknownPendingReservationException.class);
-    }
-
-    @Test
-    public void should_fail_when_canceling_unknown_reservation() {
-        // Given
-        // When
-        Throwable throwable = catchThrowable(() -> COFFEE.confirmReservation(""));
-
-        // Then
-        assertThat(throwable).isInstanceOf(UnknownPendingReservationException.class);
-    }
-
-    @Test
-    public void should_cancel_reservation() {
-        // Given
-        Item.ReservationResult reservationResult = COFFEE.reserve(5);
-        Item item = reservationResult.item;
-        String reservationId = reservationResult.reservationId;
-
-        // When
-        item = item.add(10).cancelReservation(reservationId);
-
-        // Then
-        assertThat(item).isEqualTo(Item.createStock("coffee", 20, 1));
-        assertThat(item).isEqualTo(Item.loadStock(doubleEvents(item.events())));
-    }
-
-
-    @Test
-    public void should_fail_when_canceling_already_confirmed_reservation() {
-        // Given
-        Item.ReservationResult reservationResult = COFFEE.reserve(5);
-        Item item = reservationResult.item;
-        String reservationId = reservationResult.reservationId;
-
-        // When
-        Throwable throwable = catchThrowable(() -> item.confirmReservation(reservationId)
-                                                       .cancelReservation(reservationId));
-
-        // Then
-        assertThat(throwable).isInstanceOf(UnknownPendingReservationException.class);
-    }
-
-    @Test
-    public void should_fail_when_canceling_already_canceled_reservation() {
-        // Given
-        Item.ReservationResult reservationResult = COFFEE.reserve(5);
-        Item item = reservationResult.item;
-        String reservationId = reservationResult.reservationId;
-
-        // When
-        Throwable throwable = catchThrowable(() -> item.cancelReservation(reservationId)
-                                                       .cancelReservation(reservationId));
-
-        // Then
-        assertThat(throwable).isInstanceOf(UnknownPendingReservationException.class);
+    private Item coffee() {
+        return createStock("coffee", 10, 1);
     }
 
     private Events<ItemEvent> doubleEvents(Events<ItemEvent> events) {

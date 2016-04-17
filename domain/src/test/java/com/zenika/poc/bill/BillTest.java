@@ -28,7 +28,6 @@ public class BillTest {
         // Then
         StrictAssertions.assertThat(bill.id).isNotNull();
         assertThat(bill.isClosed()).isFalse();
-        assertThat(bill).isEqualTo(loadBill(bill.events()));
     }
 
     @Test
@@ -37,25 +36,23 @@ public class BillTest {
         Bill bill = createBill();
 
         // When
-        bill = bill.order(order(COFFEE, 1));
+        bill.order(order(COFFEE, 1));
 
         // Then
-        assertThat(bill).isEqualTo(createBill(order(COFFEE, 1), emptyOrder(), false));
-        assertThat(bill).isEqualTo(loadBill(bill.events()));
+        assertThat(bill).isEqualTo(createBill(bill.id, order(COFFEE, 1), emptyOrder(), false));
     }
 
     @Test
     public void should_pay_order() {
         // Given
         Bill bill = createBill();
-        bill = bill.order(order(COFFEE, 1));
+        bill.order(order(COFFEE, 1));
 
         // When
-        bill = bill.pay(order(COFFEE, 1));
+        bill.pay(order(COFFEE, 1));
 
         // Then
-        assertThat(bill).isEqualTo(createBill(order(COFFEE, 1), order(COFFEE, 1), false));
-        assertThat(bill).isEqualTo(loadBill(bill.events()));
+        assertThat(bill).isEqualTo(createBill(bill.id, order(COFFEE, 1), order(COFFEE, 1), false));
     }
 
     @Test
@@ -68,7 +65,6 @@ public class BillTest {
 
         // Then
         assertThat(throwable).isInstanceOf(UnexpectedPaymentException.class);
-        assertThat(bill).isEqualTo(loadBill(doubleEvents(bill.events())));
     }
 
     @Test
@@ -77,50 +73,59 @@ public class BillTest {
         Bill bill = createBill();
 
         // When
-        bill = bill.close();
+        bill.close();
 
         // Then
-        assertThat(bill).isEqualTo(createBill(emptyOrder(), emptyOrder(), true));
-        assertThat(bill).isEqualTo(loadBill(doubleEvents(bill.events())));
+        assertThat(bill).isEqualTo(createBill(bill.id, emptyOrder(), emptyOrder(), true));
     }
 
     @Test
     public void should_fail_to_order_when_bill_is_closed() {
         // Given
-        Bill bill = createBill().close();
+        Bill bill = createBill();
+        bill.close();
 
         // When
         Throwable throwable = catchThrowable(() -> bill.order(order(COFFEE, 1)));
 
         // Then
         assertThat(throwable).isInstanceOf(BillClosedException.class);
-        assertThat(bill).isEqualTo(loadBill(doubleEvents(bill.events())));
     }
 
     @Test
     public void should_fail_to_pay_when_bill_is_closed() {
         // Given
-        Bill bill = createBill().close();
+        Bill bill = createBill();
+        bill.close();
 
         // When
         Throwable throwable = catchThrowable(() -> bill.pay(order(COFFEE, 1)));
 
         // Then
         assertThat(throwable).isInstanceOf(BillClosedException.class);
-        assertThat(bill).isEqualTo(loadBill(doubleEvents(bill.events())));
     }
 
     @Test
     public void should_fail_to_close_when_expecting_payment() {
         // Given
-        Bill bill = createBill().order(order(COFFEE, 1));
+        Bill bill = createBill();
+        bill.order(order(COFFEE, 1));
 
         // When
         Throwable throwable = catchThrowable(bill::close);
 
         // Then
         assertThat(throwable).isInstanceOf(UnpaidBillException.class);
-        assertThat(bill).isEqualTo(loadBill(doubleEvents(bill.events())));
+    }
+
+    @Test
+    public void should_events_be_idempotent() {
+        Bill bill = createBill();
+        bill.order(order(COFFEE, 2));
+        bill.pay(order(COFFEE, 2));
+        bill.close();
+
+        assertThat(loadBill(doubleEvents(bill.events()))).isEqualTo(bill);
     }
 
     private Events<BillEvent> doubleEvents(Events<BillEvent> events) {

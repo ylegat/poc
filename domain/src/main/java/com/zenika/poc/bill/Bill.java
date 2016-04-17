@@ -1,5 +1,7 @@
 package com.zenika.poc.bill;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import com.zenika.poc.bill.BillEvent.BillOpened;
 import com.zenika.poc.bill.BillEvent.OrderPaid;
 import com.zenika.poc.bill.BillEvent.OrderTaken;
@@ -11,6 +13,7 @@ import com.zenika.poc.share.Events;
 
 import java.util.Objects;
 
+import static com.zenika.poc.bill.Order.emptyOrder;
 import static com.zenika.poc.share.Events.emptyEvents;
 import static com.zenika.poc.share.Events.singletonEvents;
 import static java.lang.String.format;
@@ -18,27 +21,27 @@ import static java.util.UUID.randomUUID;
 
 public class Bill extends Aggregate<Bill, BillEvent> {
 
-    private static final Bill INIT_BILL = new Bill(null, null, null, null);
-
-    public static Bill createBill() {
-        String billId = randomUUID().toString();
-        return new Bill(billId, singletonEvents(new BillOpened(billId)), Order.emptyOrder(), Order.emptyOrder());
-    }
-
-    protected static Bill createBill(Order itemsOrdered, Order itemsPaid, boolean closed) {
-        String billId = randomUUID().toString();
+    @VisibleForTesting
+    protected static Bill createBill(String billId, Order itemsOrdered, Order itemsPaid, boolean closed) {
         return new Bill(billId, emptyEvents(), itemsOrdered, itemsPaid, closed);
     }
 
-    public static Bill loadBill(Events<BillEvent> events) {
-        return INIT_BILL.applyEvents(events);
+    public static Bill createBill() {
+        String billId = randomUUID().toString();
+        return new Bill(billId, singletonEvents(new BillOpened(billId)), emptyOrder(), emptyOrder());
     }
 
-    private final Order itemsOrdered;
+    public static Bill loadBill(Events<BillEvent> events) {
+        Bill bill = new Bill(null, emptyEvents(), emptyOrder(), emptyOrder());
+        bill.applyEvents(events);
+        return bill;
+    }
 
-    private final Order itemsPaid;
+    private Order itemsOrdered;
 
-    private final boolean closed;
+    private Order itemsPaid;
+
+    private boolean closed;
 
     private Bill(String id, Events<BillEvent> events, Order itemsOrdered, Order itemsPaid) {
         this(id, events, itemsOrdered, itemsPaid, false);
@@ -68,65 +71,71 @@ public class Bill extends Aggregate<Bill, BillEvent> {
     }
 
     @Override
-    protected Bill applyEvent(BillEvent event) {
+    protected void applyEvent(BillEvent event) {
         switch (event.type) {
             case BILL_OPENED:
-                return new Bill(event.aggregateId, singletonEvents(event), Order.emptyOrder(), Order.emptyOrder());
+                id = event.aggregateId;
+                break;
             case ORDER_TAKEN:
-                OrderTaken orderTaken = (OrderTaken) event;
-                return new Bill(event.aggregateId, events.add(orderTaken), orderTaken.orderedItem, itemsPaid);
+                itemsOrdered = ((OrderTaken) event).orderedItem;
+                break;
             case BILL_PAID:
-                OrderPaid orderPaid = (OrderPaid) event;
-                return new Bill(event.aggregateId, events.add(orderPaid), itemsOrdered, orderPaid.itemPaid);
+                itemsPaid = ((OrderPaid) event).itemPaid;
+                break;
             case BILL_CLOSED:
-                return new Bill(event.aggregateId, events.add(event), itemsOrdered, itemsPaid, true);
+                closed = true;
+                break;
             default:
                 throw new RuntimeException(format("Unexpected event type %s for event %s", event.type, event));
         }
+
+        events = events.add(event);
     }
 
-    public Bill order(Order itemsOrdered) {
+    public void order(Order itemsOrdered) {
         checkIsOpen();
         OrderTaken orderTaken = new OrderTaken(id, this.itemsOrdered.add(itemsOrdered));
-        return applyEvent(orderTaken);
+        applyEvent(orderTaken);
     }
 
-    public Bill pay(Order itemsPaid) {
+    public void pay(Order itemsPaid) {
         checkIsOpen();
         checkIsPaymentExpected(itemsPaid);
         OrderPaid orderPaid = new OrderPaid(id, this.itemsPaid.add(itemsPaid));
-        return applyEvent(orderPaid);
+        applyEvent(orderPaid);
     }
 
-    public Bill close() {
+    public void close() {
         checkIsOpen();
         checkIsPaid();
         BillEvent.BillClosed billClosed = new BillEvent.BillClosed(id);
-        return applyEvent(billClosed);
+        applyEvent(billClosed);
     }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof Bill)) return false;
-        Bill that = (Bill) o;
-        return closed == that.closed &&
-               Objects.equals(itemsOrdered, that.itemsOrdered) &&
-               Objects.equals(itemsPaid, that.itemsPaid);
+        Bill bill = (Bill) o;
+        return closed == bill.closed &&
+               Objects.equals(itemsOrdered, bill.itemsOrdered) &&
+               Objects.equals(itemsPaid, bill.itemsPaid) &&
+               Objects.equals(id, bill.id);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id);
+        return Objects.hash(super.hashCode(), itemsOrdered, itemsPaid, closed);
     }
 
     @Override
     public String toString() {
-        return "Bill{" +
-                "itemsOrdered=" + itemsOrdered +
-                ", itemsPaid=" + itemsPaid +
-                ", closed=" + closed +
-                '}';
+        return MoreObjects.toStringHelper(this)
+                          .add("id", id)
+                          .add("itemsOrdered", itemsOrdered)
+                          .add("itemsPaid", itemsPaid)
+                          .add("closed", closed)
+                          .toString();
     }
 
     private void checkIsPaid() {
